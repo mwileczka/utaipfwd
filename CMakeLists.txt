@@ -1,5 +1,7 @@
 cmake_minimum_required (VERSION 3.5)
 
+set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -s")
+
 project (utaipfwd)
 
 add_executable(utaipfwd)
