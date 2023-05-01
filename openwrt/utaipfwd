@@ -1,0 +1,8 @@
+#!/bin/sh /etc/rc.common
+
+USE_PROCD=1
+
+start_service(){
+    procd_open_instance utaipfwd
+    procd_set_param command utaipfwd
+}
