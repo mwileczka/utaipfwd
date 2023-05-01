@@ -22,6 +22,7 @@
 #include <arpa/inet.h>
 #include <time.h>
 
+
 #include "minmea.h"
 #include "taip.h"
 #include "ini.h"
@@ -82,15 +83,33 @@ static int config_handler(void* user, const char* section, const char* name, con
 
 
 int main(int argc, char* argv[]){
-
+    char* config_filename = NULL;
     
+    int optc;
+    while((optc = getopt(argc, argv, "f:")) != -1){
+        switch (optc)
+        {
+        case 'f':
+            config_filename = strdup(optarg);        
+            break;
+        case '?':
+            printf("usage: -f CONFIG_FILE\n");
+            exit(1);
+        default:
+            abort();
+        }
+    }    
 
-    if(ini_parse("utaipfwd.ini", config_handler, &config) < 0){
-        printf("Can't load config\n");
-        exit(1);
+    if(!config_filename){
+        config_filename = strdup("utaipfwd.ini");
     }
 
-
+    if(ini_parse(config_filename, config_handler, &config) < 0){
+        printf("Can't load config file %s: %s\n", config_filename, strerror(errno));
+        free(config_filename);
+        exit(1);
+    }
+    free(config_filename);
 
     struct sockaddr_in server_addr;
     inet_aton(config.server_ip, &server_addr.sin_addr);
@@ -98,16 +117,18 @@ int main(int argc, char* argv[]){
     server_addr.sin_family = AF_INET;
   
     int udpfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-
-
-
+    if(udpfd == -1){
+        printf("Failed to open UDP socket: %s\n", strerror(errno));
+        exit(1);
+    }
  
-
-
-
-
-
     int gpsfd = open(config.gps_port, O_RDONLY | O_NOCTTY | O_SYNC);
+    if(gpsfd == -1){
+        printf("Failed to open gps port %s: %s\n", config.gps_port, strerror(errno));
+        close(udpfd);
+        exit(1);
+    }
+
     struct termios tty;
 
     bzero(&tty, sizeof(struct termios));
@@ -141,7 +162,9 @@ int main(int argc, char* argv[]){
 
     // Save tty settings, also checking for error
     if (tcsetattr(gpsfd, TCSANOW, &tty) != 0) {
-        printf("Error %i from tcsetattr: %s\n", errno, strerror(errno));
+        printf("Failed to setup gps port: %s\n", strerror(errno));
+        close(gpsfd);
+        close(udpfd);
         exit(1);
     }
 
@@ -152,11 +175,11 @@ int main(int argc, char* argv[]){
         if(rdlen <= 0) break;
 
         read_buf[rdlen] = 0;
-        printf("RECV: %s\n", read_buf);
 
         switch (minmea_sentence_id(read_buf, false)) {
         case MINMEA_SENTENCE_RMC: {
             struct minmea_sentence_rmc frame;
+            printf("RECV: %s\n", read_buf);
             if (minmea_parse_rmc(&frame, read_buf)) {
                 /* printf("$RMC: raw coordinates and speed: (%d/%d,%d/%d) %d/%d\n",
                         frame.latitude.value, frame.latitude.scale,
