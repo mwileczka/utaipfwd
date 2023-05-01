@@ -9,7 +9,8 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceRoot}/build/utaipfwd",
-            "cwd": "${workspaceRoot}/build"
+            "cwd": "${workspaceRoot}/build",
+            "args": ["-v"]
         }
     ]
 }

@@ -133,6 +133,7 @@ enum minmea_gsa_mode {
 };
 
 enum minmea_gsa_fix_type {
+    MINMEA_GPGSA_FIX_UNKNOWN = 0,
     MINMEA_GPGSA_FIX_NONE = 1,
     MINMEA_GPGSA_FIX_2D = 2,
     MINMEA_GPGSA_FIX_3D = 3,

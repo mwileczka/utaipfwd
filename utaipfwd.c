@@ -81,16 +81,21 @@ static int config_handler(void* user, const char* section, const char* name, con
     return 1;
 }
 
+bool verbose = false;
+enum minmea_gsa_fix_type gps_fix = MINMEA_GPGSA_FIX_UNKNOWN;
 
 int main(int argc, char* argv[]){
     char* config_filename = NULL;
     
     int optc;
-    while((optc = getopt(argc, argv, "f:")) != -1){
+    while((optc = getopt(argc, argv, "f:v")) != -1){
         switch (optc)
         {
         case 'f':
             config_filename = strdup(optarg);        
+            break;
+        case 'v':
+            verbose = true;
             break;
         case '?':
             printf("usage: -f CONFIG_FILE\n");
@@ -179,7 +184,7 @@ int main(int argc, char* argv[]){
         switch (minmea_sentence_id(read_buf, false)) {
         case MINMEA_SENTENCE_RMC: {
             struct minmea_sentence_rmc frame;
-            printf("RECV: %s\n", read_buf);
+            if(verbose) printf("RECV: %s\n", read_buf);
             if (minmea_parse_rmc(&frame, read_buf)) {
                 /* printf("$RMC: raw coordinates and speed: (%d/%d,%d/%d) %d/%d\n",
                         frame.latitude.value, frame.latitude.scale,
@@ -222,6 +227,12 @@ int main(int argc, char* argv[]){
                         printf("TX max wait\n");
                     }
                     
+                    if(gps_fix < MINMEA_GPGSA_FIX_2D){
+                        send_it = true;
+                        printf("TX first fix\n");
+                    }
+                    gps_fix = MINMEA_GPGSA_FIX_2D;
+
                     if(send_it && tx_delta_s < config.min_tx_delay_s){
                         send_it = false;
                         printf("TX CANCELLED not min wait time\n");
@@ -241,24 +252,28 @@ int main(int argc, char* argv[]){
                         char outbuf[TAIP_MAX_LEN];
                         int outlen = taip_generate_pv(&pv, outbuf);
 
-                        printf("%s\n", outbuf);
+                        if(verbose) printf("%s\n", outbuf);
 
                         sendto(udpfd, outbuf, strlen(outbuf), 0, (struct sockaddr*)&server_addr, sizeof(server_addr));
                     }else{
 
                     }
                 }else{
-                    printf("INVALID\n");
+                    if(gps_fix != MINMEA_GPGSA_FIX_NONE){
+                        gps_fix = MINMEA_GPGSA_FIX_NONE;
+                        printf("First No Fix\n");
+                    }
+                    
+
+                    if(verbose) printf("INVALID\n");
                 }
-                
-
-
             }
         } break;
         }
     }
 
     close(gpsfd);
+    close(udpfd);
     return 0;
 }
 
